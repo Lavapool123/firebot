@@ -22,3 +22,5 @@
    ```bash
    git clone https://github.com/YOUR_USERNAME/Firebot.git
    cd Firebot
+
+Disclaimer: Written by ChatGPT
