@@ -1,27 +1,44 @@
-import os
-import random
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import traceback
-import tempfile
+import subprocess
+import sys
 
-try:
-    import numpy as np
-except ImportError:
-    import subprocess, sys
-    print("[Info] NumPy not found. Installing...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "numpy"])
-    import numpy as np
+# List of libraries to check and auto-install
+libraries = [
+    'numpy',
+    'torch',
+    'nltk',
+    'os',
+    'traceback',
+    'tempfile',
+    're',
+    'random',
+    'string',
+    'time',
+    'math',
+    'torch.torch.nn',
+    'torch.torch.nn.functional',
+]
+
+# Function to install missing libraries
+def install_libraries():
+    for lib in libraries:
+        try:
+            globals()[lib] = __import__(lib)
+        except ImportError:
+            print(f"[Info] {lib} not found. Installing...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", lib])
+            globals()[lib] = __import__(lib)
+
+# Install libraries if not already installed
+install_libraries()
 
 # Firebot AI Neural Network Language Model - Upgraded
-class AdvancedNNLanguageModel(nn.Module):
+class AdvancedNNLanguageModel(S.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim):
         super(AdvancedNNLanguageModel, self).__init__()
-        self.embeddings = nn.Embedding(vocab_size, embedding_dim)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
-        self.dropout = nn.Dropout(0.3)
-        self.fc = nn.Linear(hidden_dim, vocab_size)
+        self.embeddings = torch.nn.Embedding(vocab_size, embedding_dim)
+        self.lstm = torch.nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
+        self.dropout = torch.nn.Dropout(0.3)
+        self.fc = torch.nn.Linear(hidden_dim, vocab_size)
 
     def forward(self, x):
         x = self.embeddings(x)
@@ -29,7 +46,7 @@ class AdvancedNNLanguageModel(nn.Module):
         lstm_out = self.dropout(lstm_out)
         last_hidden = lstm_out[:, -1, :]
         output = self.fc(last_hidden)
-        return F.log_softmax(output, dim=1)
+        return torch.functional.log_softmax(output, dim=1)
 
 class FileManager:
     def __init__(self, folder="model_files"):
@@ -129,9 +146,8 @@ class MemoryManager:
         except Exception as e:
             return f"Error loading all memories: {e}"
 
-def build_vocab(corpus):
-    tokens = list(set(corpus.lower().split()))
-    tokens.append("<pad>")
+def build_vocab(tokens):
+    tokens = list(set(tokens)) + ["<pad>"]
     word2idx = {word: idx for idx, word in enumerate(tokens)}
     idx2word = {idx: word for word, idx in word2idx.items()}
     return word2idx, idx2word
@@ -186,13 +202,13 @@ def basic_python_tutorial():
     print("Comments help explain code: use # before your message")
 
 if __name__ == "__main__":
-    sample_corpus = "The quick brown fox jumps over the lazy dog. The dog barked at the fox."
-    word2idx, idx2word = build_vocab(sample_corpus)
-    corpus_indices = [word2idx[word] for word in sample_corpus.lower().split()]
+    sample_tokens = [word.lower() for word in nltk_words.words()]
+    word2idx, idx2word = build_vocab(sample_tokens)
+    corpus_indices = [word2idx[word] for word in sample_tokens if word in word2idx]
 
     model = AdvancedNNLanguageModel(vocab_size=len(word2idx), embedding_dim=16, hidden_dim=32)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
-    loss_fn = nn.NLLLoss()
+    loss_fn = torch.nn.NLLLoss()
 
     def train_forever():
         step = 0
