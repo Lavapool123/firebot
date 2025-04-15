@@ -15,20 +15,22 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "numpy"])
     import numpy as np
 
-# Firebot AI Neural Network Language Model
-class SimpleNNLanguageModel(nn.Module):
+# Firebot AI Neural Network Language Model - Upgraded
+class AdvancedNNLanguageModel(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim):
-        super(SimpleNNLanguageModel, self).__init__()
+        super(AdvancedNNLanguageModel, self).__init__()
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
-        self.fc1 = nn.Linear(embedding_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, vocab_size)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
+        self.dropout = nn.Dropout(0.3)
+        self.fc = nn.Linear(hidden_dim, vocab_size)
 
     def forward(self, x):
-        x = self.embeddings(x)         # Shape: (batch_size, seq_len, embedding_dim)
-        x = x.mean(dim=1)              # Reduce sequence dimension
-        x = F.relu(self.fc1(x))        # First fully connected layer
-        x = self.fc2(x)                # Output layer
-        return F.log_softmax(x, dim=1) # Softmax for classification
+        x = self.embeddings(x)              # Shape: (batch, seq, embed)
+        lstm_out, _ = self.lstm(x)          # Shape: (batch, seq, hidden)
+        lstm_out = self.dropout(lstm_out)
+        last_hidden = lstm_out[:, -1, :]    # Take last time step
+        output = self.fc(last_hidden)       # Final output
+        return F.log_softmax(output, dim=1)
 
 # FileManager allows safe file operations within the AI's designated folder
 class FileManager:
@@ -150,7 +152,7 @@ class TerminalInterface:
         tokens = prompt.lower().split()
         if not tokens:
             return "<no_input>"
-        indices = torch.tensor([[self.word2idx.get(tokens[-1], 0)]]).long()  # Shape: (1,1)
+        indices = torch.tensor([[self.word2idx.get(token, 0) for token in tokens[-3:]]]).long()
         with torch.no_grad():
             output = self.model(indices)
             top_idx = torch.argmax(output, dim=1).item()
@@ -197,19 +199,21 @@ if __name__ == "__main__":
     sample_corpus = "The quick brown fox jumps over the lazy dog. The dog barked at the fox."
     word2idx, idx2word = build_vocab(sample_corpus)
     corpus_indices = [word2idx[word] for word in sample_corpus.lower().split()]
-    input_tensor = torch.tensor([corpus_indices[:-1]]).long()  # Shape: (1, sequence_length)
-    target_tensor = torch.tensor(corpus_indices[1:]).long()
 
-    model = SimpleNNLanguageModel(vocab_size=len(word2idx), embedding_dim=10, hidden_dim=16)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    model = AdvancedNNLanguageModel(vocab_size=len(word2idx), embedding_dim=16, hidden_dim=32)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
     loss_fn = nn.NLLLoss()
 
-    for _ in range(100):
-        optimizer.zero_grad()
-        output = model(input_tensor)
-        loss = loss_fn(output, target_tensor)
-        loss.backward()
-        optimizer.step()
+    for _ in range(150):
+        for i in range(len(corpus_indices) - 3):
+            input_seq = torch.tensor([[corpus_indices[i], corpus_indices[i+1], corpus_indices[i+2]]]).long()
+            target = torch.tensor([corpus_indices[i+3]]).long()
+
+            output = model(input_seq)
+            loss = loss_fn(output, target)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
     ti = TerminalInterface(model, word2idx, idx2word)
     basic_python_tutorial()
