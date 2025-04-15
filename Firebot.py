@@ -5,9 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import traceback
 import tempfile
-import requests
 
-# Try to import NumPy, auto-install if not found
 try:
     import numpy as np
 except ImportError:
@@ -26,14 +24,13 @@ class AdvancedNNLanguageModel(nn.Module):
         self.fc = nn.Linear(hidden_dim, vocab_size)
 
     def forward(self, x):
-        x = self.embeddings(x)              # Shape: (batch, seq, embed)
-        lstm_out, _ = self.lstm(x)          # Shape: (batch, seq, hidden)
+        x = self.embeddings(x)
+        lstm_out, _ = self.lstm(x)
         lstm_out = self.dropout(lstm_out)
-        last_hidden = lstm_out[:, -1, :]    # Take last time step
-        output = self.fc(last_hidden)       # Final output
+        last_hidden = lstm_out[:, -1, :]
+        output = self.fc(last_hidden)
         return F.log_softmax(output, dim=1)
 
-# FileManager allows safe file operations within the AI's designated folder
 class FileManager:
     def __init__(self, folder="model_files"):
         self.folder = os.path.abspath(folder)
@@ -92,7 +89,6 @@ class FileManager:
         except Exception as e:
             return f"Error deleting file: {e}"
 
-# MemoryManager stores and retrieves memory files and can recall past memory
 class MemoryManager:
     def __init__(self, memory_folder=os.path.join(tempfile.gettempdir(), "firebot_memory")):
         self.folder = os.path.abspath(memory_folder)
@@ -133,33 +129,13 @@ class MemoryManager:
         except Exception as e:
             return f"Error loading all memories: {e}"
 
-# Fetch definitions from Merriam-Webster API
-def get_word_definition(word):
-    API_KEY = 'your_api_key_here'
-    url = f'https://www.dictionaryapi.com/api/v3/references/collegiate/json/{word}?key={API_KEY}'
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        if data:
-            definition = data[0].get('shortdef', ['No definition found'])[0]
-            return definition
-        else:
-            return "No data found for the word."
-    else:
-        return f"Error fetching data: {response.status_code}"
-
-# Build vocabulary from text corpus
 def build_vocab(corpus):
-    word2idx = {}
-    idx2word = {}
-    for word in corpus.split():
-        if word not in word2idx:
-            idx = len(word2idx)
-            word2idx[word] = idx
-            idx2word[idx] = word
+    tokens = list(set(corpus.lower().split()))
+    tokens.append("<pad>")
+    word2idx = {word: idx for idx, word in enumerate(tokens)}
+    idx2word = {idx: word for word, idx in word2idx.items()}
     return word2idx, idx2word
 
-# TerminalInterface allows conversation with the AI in the terminal
 class TerminalInterface:
     def __init__(self, model, word2idx, idx2word):
         self.model = model
@@ -171,7 +147,8 @@ class TerminalInterface:
         tokens = prompt.lower().split()
         if not tokens:
             return "<no_input>"
-        indices = torch.tensor([[self.word2idx.get(token, 0) for token in tokens[-3:]]]).long()
+        tokens = ["<pad>"] * (3 - len(tokens)) + tokens[-3:]
+        indices = torch.tensor([[self.word2idx.get(token, 0) for token in tokens]]).long()
         with torch.no_grad():
             output = self.model(indices)
             top_idx = torch.argmax(output, dim=1).item()
@@ -191,25 +168,23 @@ class TerminalInterface:
                 self.memory_manager.save_memory(memory_title, user_input)
                 all_memories += " " + user_input
 
-                response = []
-                for _ in range(10):
-                    next_word = self.neural_generate(all_memories)
-                    response.append(next_word)
-                    all_memories += " " + next_word
-
-                # If Firebot doesn't know a word, learn its definition
-                for word in response:
-                    if word == "<unk>":
-                        definition = get_word_definition(word)
-                        print(f"Learning new word: {word} - {definition}")
-                
-                print("Firebot:", " ".join(response))
+                next_word = self.neural_generate(all_memories)
+                if next_word not in user_input.lower():
+                    print("Firebot:", next_word)
 
             except Exception as e:
                 print("[Error during chat]:", e)
                 traceback.print_exc()
 
-# Example usage
+def basic_python_tutorial():
+    print("\n--- Python Tutorial ---")
+    print("Variables store data: x = 5")
+    print("Lists hold multiple items: fruits = ['apple', 'banana']")
+    print("Loops repeat actions: for i in range(3): print(i)")
+    print("Functions group code: def greet(): print('Hi')")
+    print("Classes model real-world things: class Dog: pass")
+    print("Comments help explain code: use # before your message")
+
 if __name__ == "__main__":
     sample_corpus = "The quick brown fox jumps over the lazy dog. The dog barked at the fox."
     word2idx, idx2word = build_vocab(sample_corpus)
@@ -219,16 +194,25 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
     loss_fn = nn.NLLLoss()
 
-    for _ in range(150):
-        for i in range(len(corpus_indices) - 3):
-            input_seq = torch.tensor([[corpus_indices[i], corpus_indices[i+1], corpus_indices[i+2]]]).long()
-            target = torch.tensor([corpus_indices[i+3]]).long()
+    def train_forever():
+        step = 0
+        while True:
+            total_loss = 0
+            for i in range(len(corpus_indices) - 3):
+                input_seq = torch.tensor([[corpus_indices[i], corpus_indices[i+1], corpus_indices[i+2]]]).long()
+                target = torch.tensor([corpus_indices[i+3]]).long()
+                output = model(input_seq)
+                loss = loss_fn(output, target)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item()
+            step += 1
+            print(f"[Training Step {step}] Total Loss: {total_loss:.4f}")
 
-            output = model(input_seq)
-            loss = loss_fn(output, target)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+    import threading
+    threading.Thread(target=train_forever, daemon=True).start()
 
     ti = TerminalInterface(model, word2idx, idx2word)
+    basic_python_tutorial()
     ti.chat()
