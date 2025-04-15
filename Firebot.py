@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import traceback
 import tempfile
--
+import requests
 
 # Try to import NumPy, auto-install if not found
 try:
@@ -147,6 +147,17 @@ def get_word_definition(word):
             return "No data found for the word."
     else:
         return f"Error fetching data: {response.status_code}"
+
+# Build vocabulary from text corpus
+def build_vocab(corpus):
+    word2idx = {}
+    idx2word = {}
+    for word in corpus.split():
+        if word not in word2idx:
+            idx = len(word2idx)
+            word2idx[word] = idx
+            idx2word[idx] = word
+    return word2idx, idx2word
 
 # TerminalInterface allows conversation with the AI in the terminal
 class TerminalInterface:
