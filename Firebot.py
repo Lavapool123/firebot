@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import traceback
 import tempfile
+-
 
 # Try to import NumPy, auto-install if not found
 try:
@@ -132,13 +133,20 @@ class MemoryManager:
         except Exception as e:
             return f"Error loading all memories: {e}"
 
-# Utility functions to build vocabulary and tokenize
-
-def build_vocab(corpus):
-    tokens = list(set(corpus.lower().split()))
-    word2idx = {word: idx for idx, word in enumerate(tokens)}
-    idx2word = {idx: word for word, idx in word2idx.items()}
-    return word2idx, idx2word
+# Fetch definitions from Merriam-Webster API
+def get_word_definition(word):
+    API_KEY = 'your_api_key_here'
+    url = f'https://www.dictionaryapi.com/api/v3/references/collegiate/json/{word}?key={API_KEY}'
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        if data:
+            definition = data[0].get('shortdef', ['No definition found'])[0]
+            return definition
+        else:
+            return "No data found for the word."
+    else:
+        return f"Error fetching data: {response.status_code}"
 
 # TerminalInterface allows conversation with the AI in the terminal
 class TerminalInterface:
@@ -178,21 +186,17 @@ class TerminalInterface:
                     response.append(next_word)
                     all_memories += " " + next_word
 
+                # If Firebot doesn't know a word, learn its definition
+                for word in response:
+                    if word == "<unk>":
+                        definition = get_word_definition(word)
+                        print(f"Learning new word: {word} - {definition}")
+                
                 print("Firebot:", " ".join(response))
 
             except Exception as e:
                 print("[Error during chat]:", e)
                 traceback.print_exc()
-
-# Basic Python Tutorial (can be extended further)
-def basic_python_tutorial():
-    print("\n--- Python Tutorial ---")
-    print("Variables store data: x = 5")
-    print("Lists hold multiple items: fruits = ['apple', 'banana']")
-    print("Loops repeat actions: for i in range(3): print(i)")
-    print("Functions group code: def greet(): print('Hi')")
-    print("Classes model real-world things: class Dog: pass")
-    print("Comments help explain code: use # before your message")
 
 # Example usage
 if __name__ == "__main__":
@@ -216,5 +220,4 @@ if __name__ == "__main__":
             optimizer.step()
 
     ti = TerminalInterface(model, word2idx, idx2word)
-    basic_python_tutorial()
     ti.chat()
