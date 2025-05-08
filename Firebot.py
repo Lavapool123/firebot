@@ -14,8 +14,8 @@ libraries = [
     'string',
     'time',
     'math',
-    'torch.torch.nn',
-    'torch.torch.nn.functional',
+    'torch.nn',
+    'torch.nn.functional',
 ]
 
 # Function to install missing libraries
