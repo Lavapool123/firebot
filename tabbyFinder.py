@@ -1,106 +1,117 @@
-import subprocess
-import sys
-import threading
-import time
-import random
-import string
+import threading, random, time, queue, os, subprocess, sys
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import WebDriverException
+from concurrent.futures import ThreadPoolExecutor
 import webbrowser
-import os
 
-# auto-install selenium if missing
+# Ensure selenium is installed
 try:
     import selenium
 except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "selenium"])
-    import selenium
 
-# constants
-baseUrl="https://tabbycats.club/cat/"
-targetSpecies={"cat", "bunny"}
-foundCats=[]
-failLinks=[]
-noteworthyCount=0
-foundCatCount=0
-foundBunnyCount=0
-lock=threading.Lock()
+# Constants
+baseUrl = "https://tabbycats.club/cat/"
+speciesList = ["cat", "bunny"]
+successLock = threading.Lock()
+resultsQueue = queue.Queue()
+successes = []
+noteworthyLinks = []
+foundCats = 0
+foundBunnies = 0
+TARGET_CATS = 6
+TARGET_BUNNIES = 3
+MAX_THREADS = 3
 
-# setup chrome options
-chromeOptions=Options()
-chromeOptions.add_argument("--headless=new")
-chromeOptions.add_argument("--log-level=3")
-chromeOptions.add_experimental_option("excludeSwitches", ["enable-logging"])
+# Set up headless browser
+def createDriver():
+    chromeOptions = Options()
+    chromeOptions.add_argument("--headless=new")
+    chromeOptions.add_argument("--log-level=3")
+    chromeOptions.add_argument("--disable-logging")
+    chromeOptions.add_experimental_option("excludeSwitches", ["enable-logging"])
+    
+    # Suppress DevTools + Chrome warnings by silencing the Service logs
+    service = Service(log_path=os.devnull)
+    
+    return webdriver.Chrome(service=service, options=chromeOptions)
 
-def randomCode():
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+# Check a single link
+def checkLink(url):
+    global foundCats, foundBunnies
+    driver = None
+    try:
+        driver = createDriver()
+        driver.get(url)
+        nameEl = driver.find_element(By.TAG_NAME, "h1")
+        speciesEl = driver.find_element(By.TAG_NAME, "h2")
+        name = nameEl.text.strip()
+        species = speciesEl.text.strip().lower()
 
-def checkTabbyLink():
-    global foundCatCount, foundBunnyCount, noteworthyCount
-    while True:
-        with lock:
-            if foundCatCount>=6 and foundBunnyCount>=3:
-                return
-        code=randomCode()
-        link=baseUrl+code
-        print(f"checking link: {link}")
-        try:
-            driver=webdriver.Chrome(options=chromeOptions)
-            driver.get(link)
-            time.sleep(1)
-
-            if "Lil 404" in driver.page_source:
-                with lock:
-                    failLinks.append(link)
-                driver.quit()
-                continue
-
-            try:
-                name=driver.find_element(By.CLASS_NAME, "css-1rs21hf").text
-                species=driver.find_element(By.CLASS_NAME, "css-1id5uvs").text.lower()
-            except:
-                driver.quit()
-                with lock:
-                    failLinks.append(link)
-                continue
-
-            if species in targetSpecies:
-                with lock:
-                    if species=="cat":
-                        foundCatCount+=1
-                    elif species=="bunny":
-                        foundBunnyCount+=1
-                    foundCats.append((name, species, link))
-                print(f"cat found! name: {name}, species: {species}")
-                webbrowser.open(link)
-            else:
-                with lock:
-                    noteworthyCount+=1
-                print(f"non-target animal found at {link}")
+        with successLock:
+            if species == "cat" and foundCats < TARGET_CATS:
+                foundCats += 1
+                successes.append((name, "Cat", url))
+                webbrowser.open(url)
+                resultsQueue.put(f"Success: {name}, Cat\n")
+            elif species == "bunny" and foundBunnies < TARGET_BUNNIES:
+                foundBunnies += 1
+                successes.append((name, "Bunny", url))
+                webbrowser.open(url)
+                resultsQueue.put(f"Success: {name}, Bunny\n")
+            elif species not in speciesList:
+                noteworthyLinks.append(url)
+                resultsQueue.put(f"Noteworthy: {url}\n")
+    except Exception:
+        pass
+    finally:
+        if driver:
             driver.quit()
-        except WebDriverException:
-            print(f"error accessing {link}")
 
-threads=[]
-for _ in range(3):
-    thread=threading.Thread(target=checkTabbyLink)
-    threads.append(thread)
-    thread.start()
+# Worker thread
+def workerLoop():
+    while True:
+        with successLock:
+            if foundCats >= TARGET_CATS and foundBunnies >= TARGET_BUNNIES:
+                break
+        randId = "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=6))
+        url = baseUrl + randId
+        resultsQueue.put(f"Checking link: {url}\n")
+        checkLink(url)
+        time.sleep(0.1)
 
-for thread in threads:
-    thread.join()
+# Real-time result printer
+def printerLoop():
+    while True:
+        try:
+            msg = resultsQueue.get(timeout=1)
+            print(msg, end="")
+            resultsQueue.task_done()
+        except queue.Empty:
+            with successLock:
+                if foundCats >= TARGET_CATS and foundBunnies >= TARGET_BUNNIES:
+                    break
 
-# print results
-print("\n--- Search Complete ---")
-print(f"Found {len(foundCats)} target animals ({foundCatCount} cats, {foundBunnyCount} bunnies)")
-print(f"Found {noteworthyCount} other animals\n")
+# Main entry point
+def main():
+    printer = threading.Thread(target=printerLoop)
+    printer.start()
 
-print("--- Successes ---")
-for name,species,link in foundCats:
-    print(f"{name} ({species}) - {link}")
+    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+        for _ in range(MAX_THREADS):
+            executor.submit(workerLoop)
 
-print("\n--- Failures ---")
-for link in failLinks:
-    print(link)
+    printer.join()
+
+    print("\nSuccessful Finds:")
+    for name, species, link in successes:
+        print(f"{name}, {species}, {link}")
+
+    if noteworthyLinks:
+        print("\nNoteworthy:")
+        for link in noteworthyLinks:
+            print(link)
+
+if __name__ == "__main__":
+    main()
