@@ -33,7 +33,7 @@ def createDriver():
     chromeOptions.add_experimental_option("excludeSwitches", ["enable-logging"])
     
     # Suppress DevTools + Chrome warnings by silencing the Service logs
-    service = Service(log_path=os.devnull)
+    service = service(log_path=os.devnull)
     
     return webdriver.Chrome(service=service, options=chromeOptions)
 
