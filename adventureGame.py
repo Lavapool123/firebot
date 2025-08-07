@@ -140,7 +140,7 @@ if door!="life":
     if "turn back" in door or "neither" in door:
         chapterRun(0)
     else:
-        print("The door leads to a pitfall. Your fall in. ")
+        print("The door leads to a pitfall. You fall in. ")
         time.sleep(1)
         lose()
 else:
