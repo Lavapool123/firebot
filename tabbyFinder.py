@@ -19,7 +19,6 @@ while run==False:
     speed=str((cats*6)//60)+" minutes and "+str(cats*6-((cats*6)//60)*60)+ " seconds"
     run="y" in input(f"This will take a minimum of {speed}. Proceed? ").strip().lower()
 pyautogui.hotkey("win","5")
-pyautogui.hotkey("ctrl","n")
 options=Options()
 options.add_argument("--headless=new")
 driver=webdriver.Chrome(options=options)
@@ -50,7 +49,6 @@ while len(catNames)<cats:
     pyautogui.hotkey("ctrl","w")
     pyautogui.hotkey("ctrl","w")
 driver.quit()
-pyautogui.hotkey("ctrl","w")
 pyautogui.hotkey("win","3")
 os.system('cls')
 legends=["Fiery", "Evil", "Pinky", "Space", "Night", "Rainbow", "Tiny"]
