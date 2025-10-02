@@ -2,23 +2,34 @@ import importlib.util
 import subprocess
 import sys
 import os
+import warnings
 if importlib.util.find_spec('pygetwindow') is None:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "pygetwindow"])
 import pygetwindow
-activeWindow=None
-openedWindows={}
+banned=['family']
+openedWindows=pygetwindow.getAllTitles()
 while True:
-    banned=['Edge']
-    if activeWindow!=pygetwindow.getActiveWindow():
-        activeWindow=pygetwindow.getActiveWindow()
-        if activeWindow!=None:
-            openedWindows[pygetwindow.getActiveWindowTitle()]=activeWindow
-            os.system('cls')
-            print(f"All Opened Windows: {openedWindows} \nCurrently active window: {pygetwindow.getActiveWindowTitle()} ")
-            for ban in banned:
-                if ban in pygetwindow.getActiveWindowTitle() or pygetwindow.getActiveWindowTitle() in banned:
+    if openedWindows!=pygetwindow.getAllTitles():
+        openedWindows=pygetwindow.getAllTitles()
+        os.system('cls')
+        print(f"All Opened Windows: {openedWindows} \nCurrently active window: {pygetwindow.getActiveWindowTitle()} ")
+    for ban in banned:
+        for window in openedWindows:
+            if ban.lower() in window.lower():
+                try:
+                    toBan=pygetwindow.getWindowsWithTitle(window)[0]
+                except:
+                    pass
+                try:
+                    toBan.close()
+                    warnings.warn(f"Closed {window}!")
+                except:
                     try:
-                        activeWindow.close()
-                        print(f"U naughty bad bad! Were you trying to open {pygetwindow.getActiveWindowTitle()}?")
+                        toBan.minimize()
+                        warnings.warn(f"Minimized {window}!")
                     except:
-                        print(f"U naughty bad bad! Close {pygetwindow.getActiveWindowTitle()} right now!")
+                        try:
+                            toBan.hide()
+                            warnings.warn(f"Hid {window}!")
+                        except:
+                            warnings.warn(f"Close {window} right now!")

@@ -25,8 +25,15 @@ pyautogui.hotkey('win','r')
 pyautogui.typewrite('chrome')
 pyautogui.press('enter')
 while not any('Chrome' in window for window in pygetwindow.getAllTitles()):
-    time.sleep(0.5)
-time.sleep(3)
+    time.sleep(0.1)
+chrome_window = None
+while not chrome_window:
+    for w in pygetwindow.getAllWindows():
+        if 'Chrome' in w.title:
+            chrome_window = w
+            break
+    time.sleep(0.1)
+chrome_window.activate()
 pyautogui.press('tab')
 pyautogui.press('enter')
 shopFails=0
