@@ -19,7 +19,7 @@ while True:
                 try:
                     toBan=pygetwindow.getWindowsWithTitle(window)[0]
                 except:
-                    pass
+                    continue
                 try:
                     toBan.close()
                     warnings.warn(f"Closed {window}!")
