@@ -1,4 +1,7 @@
 import pyautogui
-for i in range(100):
-    pyautogui.hotkey("ctrl","v")
-    pyautogui.press("enter")
+screenWidth, screenHeight = pyautogui.size()
+for i in range(10):
+    color=pyautogui.screenshot()
+    while color.getpixel((screenWidth//2,screenHeight//2))[1]<200:
+        color=pyautogui.screenshot()
+    pyautogui.click()
