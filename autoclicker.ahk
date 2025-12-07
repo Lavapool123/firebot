@@ -1,17 +1,25 @@
+global l := false
+global r := false
+
 !F1::
 {
-    static l:=false
-    l:=!l
-    while l {
-        Click()
-    }
+    global l
+    l := !l
 }
 
 !F2::
 {
-    static r:=false
-    r:=!r
-    while r {
+    global r
+    r := !r
+}
+
+SetTimer(Clicker, 1)
+
+Clicker()
+{
+    global l, r
+    if l
+        Click()
+    if r
         Click("right")
-    }
 }
