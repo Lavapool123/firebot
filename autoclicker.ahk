@@ -1,5 +1,7 @@
 global l := false
 global r := false
+setmousedelay 0
+setbatchlines 0
 
 !F1::
 {
